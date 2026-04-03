@@ -1,0 +1,75 @@
+name: linguaplay
+description: Lecteur vidéo multilingue avec clonage vocal
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter_secure_storage: ^10.0.0
+  flutter:
+    sdk: flutter
+
+  # Navigation
+  go_router: ^17.1.0
+
+  # État (State Management)
+  flutter_riverpod: ^2.4.0
+  riverpod_annotation: ^2.3.0
+
+  # Requêtes HTTP
+  dio: ^5.4.0
+
+  # Lecteur vidéo
+  video_player: ^2.8.0
+  chewie: ^1.7.0
+
+  # Stockage local
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.0
+
+  # Notifications
+  flutter_local_notifications: ^21.0.0
+
+  # Import de fichiers
+  file_picker: ^10.3.10
+  image_picker: ^1.0.0
+
+  # Permissions
+  permission_handler: ^12.0.1
+
+  # Icônes et UI
+  cupertino_icons: ^1.0.2
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.0
+  shimmer: ^3.0.0
+  lottie: ^3.0.0
+
+
+  # Utilitaires
+  intl: ^0.20.2
+  uuid: ^4.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.0
+  hive_generator: ^2.0.1
+  riverpod_generator: ^2.3.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora-Regular.ttf
+        - asset: assets/fonts/Sora-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Sora-Bold.ttf
+          weight: 700
