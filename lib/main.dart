@@ -37,3 +37,5 @@ class LinguaPlayApp extends StatelessWidget {
     );
   }
 }
+
+//compte gmail claude : emmanusakam@gmail.com

@@ -10,7 +10,6 @@ class HomeScreen extends StatelessWidget {
 
   int _selectedIndex(BuildContext context) {
     final loc = GoRouterState.of(context).uri.toString();
-    if (loc.startsWith(AppRoutes.library)) return 0;
     if (loc.startsWith(AppRoutes.settings)) return 1;
     return 0;
   }
@@ -35,6 +34,8 @@ class HomeScreen extends StatelessWidget {
         color: AppColors.bgCard,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
+        height: 64, // ← hauteur fixe explicite
+        padding: EdgeInsets.zero,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
@@ -45,7 +46,7 @@ class HomeScreen extends StatelessWidget {
               isActive: _selectedIndex(context) == 0,
               onTap: () => context.go(AppRoutes.library),
             ),
-            const SizedBox(width: 60), // espace FAB
+            const SizedBox(width: 80), // espace FAB
             _NavItem(
               icon: Icons.settings_outlined,
               activeIcon: Icons.settings_rounded,
@@ -80,26 +81,32 @@ class _NavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              color: isActive ? AppColors.primary : AppColors.textMuted,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+      child: SizedBox(
+        height: 64, // ← hauteur contrainte explicite
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // ← centré verticalement
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isActive ? activeIcon : icon,
                 color: isActive ? AppColors.primary : AppColors.textMuted,
+                size: 22, // ← réduit de 24 à 22
               ),
-            ),
-          ],
+              const SizedBox(height: 3), // ← réduit de 4 à 3
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10, // ← réduit de 11 à 10
+                  fontWeight:
+                  isActive ? FontWeight.w600 : FontWeight.w400,
+                  color:
+                  isActive ? AppColors.primary : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
