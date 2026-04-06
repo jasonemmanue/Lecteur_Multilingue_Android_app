@@ -6,22 +6,35 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'services/storage_service.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Orientation portrait uniquement (sauf lecteur)
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
+  // Barre de statut transparente
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
+    statusBarColor:            Colors.transparent,
+    statusBarIconBrightness:   Brightness.light,
   ));
 
+  // Hive + StorageService
+  await Hive.initFlutter();
   await StorageService.init();
-  runApp(const ProviderScope(child: LinguaPlayApp()));
+
+  // Notifications push
+  await NotificationService.init();
+
+  runApp(
+    const ProviderScope(
+      child: LinguaPlayApp(),
+    ),
+  );
 }
 
 class LinguaPlayApp extends StatelessWidget {
@@ -30,12 +43,14 @@ class LinguaPlayApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'LinguaPlay',
+      title:                    'LinguaPlay',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      routerConfig: appRouter,
+      theme:                    AppTheme.dark,
+      routerConfig:             appRouter,
     );
   }
 }
-
 //compte gmail claude : emmanusakam@gmail.com
+//Compte soutient : sakamemmanuel@gmail.com
+//adb reverse tcp:8000 tcp:8000 : fait que le téléphone passe par le localhost pour
+// se connecter a l'api a chaque branchement

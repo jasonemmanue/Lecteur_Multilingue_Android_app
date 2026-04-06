@@ -11,14 +11,14 @@ import '../screens/library_screen.dart';
 import '../screens/settings_screen.dart';
 
 class AppRoutes {
-  static const String splash        = '/';
-  static const String home          = '/home';
-  static const String import        = '/import';
-  static const String languagePicker = '/language-picker';
-  static const String processing    = '/processing';
-  static const String player        = '/player';
-  static const String library       = '/library';
-  static const String settings      = '/settings';
+  static const String splash          = '/';
+  static const String home            = '/home';
+  static const String import          = '/import';
+  static const String languagePicker  = '/language-picker';
+  static const String processing      = '/processing';
+  static const String player          = '/player';
+  static const String library         = '/library';
+  static const String settings        = '/settings';
 }
 
 final GoRouter appRouter = GoRouter(
@@ -59,8 +59,16 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.processing,
       builder: (context, state) {
-        final jobId = state.extra as String? ?? '';
-        return ProcessingScreen(jobId: jobId);
+        // extra peut être un String (jobId) ou une Map {jobId, targetLang}
+        final extra = state.extra;
+        if (extra is Map<String, dynamic>) {
+          return ProcessingScreen(
+            jobId:          extra['jobId'] as String,
+            targetLanguage: extra['targetLang'] as String?,
+            videoTitle:     extra['videoTitle'] as String?,
+          );
+        }
+        return ProcessingScreen(jobId: extra as String? ?? '');
       },
     ),
     GoRoute(

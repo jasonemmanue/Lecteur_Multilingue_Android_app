@@ -1,10 +1,5 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'video_item.dart';
-
-// **************************************************************************
-// TypeAdapterGenerator
-// **************************************************************************
 
 class VideoItemAdapter extends TypeAdapter<VideoItem> {
   @override

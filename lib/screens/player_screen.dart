@@ -1,29 +1,39 @@
 // lib/screens/player_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
+import 'package:path/path.dart' as p;
 import '../theme/app_colors.dart';
+import '../services/download_service.dart';
+import '../providers/library_provider.dart';
+import '../models/video_item.dart';
 
-class PlayerScreen extends StatefulWidget {
+class PlayerScreen extends ConsumerStatefulWidget {
   final String videoPath;
   const PlayerScreen({super.key, required this.videoPath});
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   VideoPlayerController? _vpController;
-  ChewieController? _chewieController;
-  bool _isOriginalAudio = false; // false = audio traduit
-  bool _showSubtitles   = true;
+  ChewieController?      _chewieController;
+  bool _isOriginalAudio  = false;
+  bool _showSubtitles    = true;
+  bool _isSaving         = false;
+  bool _isSaved          = false;
+  String? _saveError;
+
+  final _downloadService = DownloadService();
 
   @override
   void initState() {
     super.initState();
     _initPlayer();
-    // Activer la rotation pour le plein écran
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -43,28 +53,97 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _chewieController = ChewieController(
       videoPlayerController: _vpController!,
-      autoPlay: true,
-      looping: false,
+      autoPlay:    true,
+      looping:     false,
       allowFullScreen: true,
       materialProgressColors: ChewieProgressColors(
-        playedColor: AppColors.primary,
-        handleColor: AppColors.primaryLight,
+        playedColor:     AppColors.primary,
+        handleColor:     AppColors.primaryLight,
         backgroundColor: AppColors.border,
-        bufferedColor: AppColors.bgSurface,
+        bufferedColor:   AppColors.bgSurface,
       ),
-      placeholder: Container(color: AppColors.bgDark),
+      placeholder:  Container(color: AppColors.bgDark),
       errorBuilder: (_, msg) => Center(
-        child: Text(msg,
-            style: const TextStyle(color: AppColors.error)),
+        child: Text(msg, style: const TextStyle(color: AppColors.error)),
       ),
     );
 
     setState(() {});
   }
 
+  // ── Sauvegarde locale ──────────────────────────────────────────────────────
+
+  Future<void> _saveToDevice() async {
+    if (_isSaved || _isSaving) return;
+    setState(() { _isSaving = true; _saveError = null; });
+
+    try {
+      // Copier dans Movies/LinguaPlay si pas déjà là
+      final sourcePath = widget.videoPath;
+      String finalPath = sourcePath;
+
+      if (!sourcePath.contains('/Movies/LinguaPlay')) {
+        final dir      = await _downloadService.getPublicVideoDirectory();
+        final fileName = p.basename(sourcePath);
+        finalPath = '${dir.path}/$fileName';
+        await File(sourcePath).copy(finalPath);
+      }
+
+      // Ajouter à la bibliothèque Hive
+      final videoId = p.basenameWithoutExtension(finalPath)
+          .replaceAll('linguaplay_', '')
+          .replaceAll('translated_', '');
+
+      final already = ref.read(libraryProvider)
+          .any((v) => v.localPath == finalPath);
+
+      if (!already) {
+        final item = VideoItem(
+          id:         videoId,
+          title:      p.basenameWithoutExtension(finalPath)
+              .replaceAll('_', ' '),
+          localPath:  finalPath,
+          importedAt: DateTime.now(),
+          translatedLanguages: const [],
+        );
+        await ref.read(libraryProvider.notifier).addVideo(item);
+      }
+
+      if (mounted) setState(() { _isSaved = true; _isSaving = false; });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Vidéo sauvegardée dans Movies/LinguaPlay',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.accent,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSaving  = false;
+          _saveError = 'Erreur : $e';
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
-    // Remettre portrait uniquement en quittant
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _chewieController?.dispose();
     _vpController?.dispose();
@@ -80,7 +159,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         foregroundColor: Colors.white,
         title: const Text('LinguaPlay'),
         actions: [
-          // Bascule sous-titres
           IconButton(
             icon: Icon(
               _showSubtitles
@@ -108,11 +186,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Bascule Audio Original / Traduit ───────────────────
+                  // ── Bascule audio ─────────────────────────────────────
                   const Text('Piste audio',
                       style: TextStyle(
                           fontSize: 13, color: AppColors.textMuted,
@@ -120,22 +198,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   const SizedBox(height: 10),
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.bgCard,
+                      color:        AppColors.bgCard,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
+                      border:       Border.all(color: AppColors.border),
                     ),
                     child: Row(
                       children: [
                         _AudioTrackButton(
-                          label: 'Audio traduit',
-                          icon: Icons.translate_rounded,
+                          label:    'Audio traduit',
+                          icon:     Icons.translate_rounded,
                           isActive: !_isOriginalAudio,
                           onTap: () =>
                               setState(() => _isOriginalAudio = false),
                         ),
                         _AudioTrackButton(
-                          label: 'Audio original',
-                          icon: Icons.record_voice_over_outlined,
+                          label:    'Audio original',
+                          icon:     Icons.record_voice_over_outlined,
                           isActive: _isOriginalAudio,
                           onTap: () =>
                               setState(() => _isOriginalAudio = true),
@@ -146,14 +224,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
                   const SizedBox(height: 20),
 
-                  // ── Infos sous-titres ─────────────────────────────────
+                  // ── Sous-titres ───────────────────────────────────────
                   if (_showSubtitles)
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: AppColors.bgCard,
+                        color:        AppColors.bgCard,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.border),
+                        border:       Border.all(color: AppColors.border),
                       ),
                       child: Row(
                         children: [
@@ -161,12 +239,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               color: AppColors.primary, size: 20),
                           const SizedBox(width: 10),
                           const Expanded(
-                            child: Text(
-                              'Sous-titres traduits activés',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecond),
-                            ),
+                            child: Text('Sous-titres traduits activés',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecond)),
                           ),
                           TextButton(
                             onPressed: () {/* TODO: export SRT */},
@@ -178,7 +254,72 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         ],
                       ),
                     ),
+
+                  // ── Erreur sauvegarde ─────────────────────────────────
+                  if (_saveError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color:        AppColors.error.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: AppColors.error.withOpacity(0.4)),
+                      ),
+                      child: Text(_saveError!,
+                          style: const TextStyle(
+                              color: AppColors.error, fontSize: 13)),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
                 ],
+              ),
+            ),
+          ),
+
+          // ── Bouton Télécharger — fixe en bas ─────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            decoration: const BoxDecoration(
+              color:  AppColors.bgCard,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _isSaving || _isSaved ? null : _saveToDevice,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                backgroundColor: _isSaved
+                    ? AppColors.accent
+                    : AppColors.primary,
+                disabledBackgroundColor: _isSaved
+                    ? AppColors.accent.withOpacity(0.7)
+                    : AppColors.bgSurface,
+              ),
+              icon: _isSaving
+                  ? const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+                  : Icon(
+                _isSaved
+                    ? Icons.check_circle_rounded
+                    : Icons.download_rounded,
+                color: Colors.white,
+              ),
+              label: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _isSaving
+                      ? 'Sauvegarde…'
+                      : _isSaved
+                      ? 'Sauvegardé ✓'
+                      : 'Télécharger',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                ),
               ),
             ),
           ),
@@ -188,10 +329,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 }
 
+// ─── Widget bouton piste audio ────────────────────────────────────────────────
+
 class _AudioTrackButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isActive;
+  final String       label;
+  final IconData     icon;
+  final bool         isActive;
   final VoidCallback onTap;
 
   const _AudioTrackButton({
@@ -217,20 +360,16 @@ class _AudioTrackButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon,
-                  size: 16,
-                  color: isActive
-                      ? AppColors.primary
-                      : AppColors.textMuted),
+                  size:  16,
+                  color: isActive ? AppColors.primary : AppColors.textMuted),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500,
-                  color: isActive
-                      ? AppColors.primaryLight
-                      : AppColors.textMuted,
-                ),
-              ),
+              Text(label,
+                  style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500,
+                    color: isActive
+                        ? AppColors.primaryLight
+                        : AppColors.textMuted,
+                  )),
             ],
           ),
         ),
